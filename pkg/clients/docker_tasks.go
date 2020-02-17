@@ -21,9 +21,9 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/pkg/signal"
-	"github.com/docker/docker/pkg/term"
 	"github.com/docker/go-connections/nat"
 	"github.com/hashicorp/go-hclog"
+	"github.com/shipyard-run/shipyard/pkg/clients/streams"
 	"github.com/shipyard-run/shipyard/pkg/config"
 	"github.com/shipyard-run/shipyard/pkg/utils"
 	"golang.org/x/xerrors"
@@ -446,6 +446,11 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 		return err
 	}
 
+	// wrap the standard streams
+	ttyIn := streams.NewIn(in)
+	ttyOut := streams.NewOut(stdout)
+	ttyErr := streams.NewOut(errout)
+
 	defer resp.Close()
 
 	errCh := make(chan error, 1)
@@ -454,12 +459,14 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 		defer close(errCh)
 		errCh <- func() error {
 			streamer := hijackedIOStreamer{
-				inputStream:  in,
-				outputStream: stdout,
-				errorStream:  errout,
+				inStr:        ttyIn,
+				outStr:       ttyOut,
+				inputStream:  ttyIn,
+				outputStream: ttyOut,
+				errorStream:  ttyErr,
 				resp:         resp,
 				tty:          true,
-				detachKeys:   string(defaultEscapeKeys),
+				detachKeys:   "ctrl-e,e",
 				logger:       d.l,
 			}
 
@@ -468,14 +475,14 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 	}()
 
 	// init the TTY
-	d.initTTY(execid.ID, stdout)
+	d.initTTY(execid.ID, ttyOut)
 
 	// monitor for TTY changes
 	sigchan := make(chan os.Signal, 1)
 	gosignal.Notify(sigchan, signal.SIGWINCH)
 	go func() {
 		for range sigchan {
-			d.resizeTTY(execid.ID, &stdout)
+			d.resizeTTY(execid.ID, ttyOut)
 		}
 	}()
 
@@ -498,13 +505,13 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 	}
 }
 
-func (d *DockerTasks) initTTY(id string, out io.Writer) error {
-	if err := d.resizeTTY(id, &out); err != nil {
+func (d *DockerTasks) initTTY(id string, out *streams.Out) error {
+	if err := d.resizeTTY(id, out); err != nil {
 		go func() {
 			var err error
 			for retry := 0; retry < 5; retry++ {
 				time.Sleep(10 * time.Millisecond)
-				if err = d.resizeTTY(id, &out); err == nil {
+				if err = d.resizeTTY(id, out); err == nil {
 					break
 				}
 			}
@@ -518,24 +525,20 @@ func (d *DockerTasks) initTTY(id string, out io.Writer) error {
 	return nil
 }
 
-func (d *DockerTasks) resizeTTY(id string, out *io.Writer) error {
-	fd, _ := term.GetFdInfo(out)
+func (d *DockerTasks) resizeTTY(id string, out *streams.Out) error {
+	h, w := out.GetTtySize()
 
-	ws, err := term.GetWinsize(fd)
-	if err != nil {
-		if ws == nil {
-			d.l.Error("Unable to get TTY size", "error", err)
-			return UnableToGetTTYSizeError
-		}
+	if h == 0 && w == 0 {
+		return nil
 	}
 
 	options := types.ResizeOptions{
-		Height: uint(ws.Width),
-		Width:  uint(ws.Width),
+		Height: uint(h),
+		Width:  uint(w),
 	}
 
 	// resize the contiainer
-	err = d.c.ContainerExecResize(context.Background(), id, options)
+	err := d.c.ContainerExecResize(context.Background(), id, options)
 	if err != nil {
 		return err
 	}

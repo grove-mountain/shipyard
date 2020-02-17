@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"sync"
 
 	"github.com/docker/docker/api/types"
@@ -11,6 +12,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/docker/pkg/term"
 	"github.com/hashicorp/go-hclog"
+	"github.com/shipyard-run/shipyard/pkg/clients/streams"
 )
 
 // The default escape key sequence: ctrl-p, ctrl-q
@@ -20,6 +22,8 @@ var defaultEscapeKeys = []byte{16, 17}
 // A hijackedIOStreamer handles copying input to and output from streams to the
 // connection.
 type hijackedIOStreamer struct {
+	inStr        *streams.In
+	outStr       *streams.Out
 	inputStream  io.ReadCloser
 	outputStream io.Writer
 	errorStream  io.Writer
@@ -77,18 +81,16 @@ func (h *hijackedIOStreamer) setupInput() (restore func(), err error) {
 		return func() {}, nil
 	}
 
-	/*
-		if err := setRawTerminal(h.streams); err != nil {
-			return nil, fmt.Errorf("unable to set IO streams as raw terminal: %s", err)
-		}
-	*/
+	if err := setRawTerminal(h.inStr, h.outStr); err != nil {
+		return nil, fmt.Errorf("unable to set IO streams as raw terminal: %s", err)
+	}
 
 	// Use sync.Once so we may call restore multiple times but ensure we
 	// only restore the terminal once.
 	var restoreOnce sync.Once
 	restore = func() {
 		restoreOnce.Do(func() {
-			// restoreTerminal(h.streams, h.inputStream)
+			restoreTerminal(h.inStr, h.outStr, h.inputStream)
 		})
 	}
 
@@ -179,18 +181,17 @@ func (h *hijackedIOStreamer) beginInputStream(restoreInput func()) (doneC <-chan
 	return inputDone, detached
 }
 
-/*
-func setRawTerminal(streams command.Streams) error {
-	if err := streams.In().SetRawTerminal(); err != nil {
+func setRawTerminal(inStr *streams.In, outStr *streams.Out) error {
+	if err := inStr.SetRawTerminal(); err != nil {
 		return err
 	}
-	return streams.Out().SetRawTerminal()
+	return outStr.SetRawTerminal()
 }
 
 // nolint: unparam
-func restoreTerminal(streams command.Streams, in io.Closer) error {
-	streams.In().RestoreTerminal()
-	streams.Out().RestoreTerminal()
+func restoreTerminal(inStr *streams.In, outStr *streams.Out, in io.Closer) error {
+	inStr.RestoreTerminal()
+	outStr.RestoreTerminal()
 	// WARNING: DO NOT REMOVE THE OS CHECKS !!!
 	// For some reason this Close call blocks on darwin..
 	// As the client exits right after, simply discard the close
@@ -208,4 +209,3 @@ func restoreTerminal(streams command.Streams, in io.Closer) error {
 	}
 	return nil
 }
-*/
