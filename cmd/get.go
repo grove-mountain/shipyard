@@ -63,7 +63,7 @@ func pullRemoteBlueprint(uri string) (string, error) {
 		return "", err
 	}
 
-	dst := fmt.Sprintf("%s/.shipyard/blueprints/%s", os.Getenv("HOME"), bpFolder)
+	dst := fmt.Sprintf("%s/blueprints/%s", utils.ShipyardHome(), bpFolder)
 
 	pwd, err := os.Getwd()
 	if err != nil {

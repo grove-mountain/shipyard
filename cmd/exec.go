@@ -30,11 +30,13 @@ var execCmd = &cobra.Command{
 	Use:   "exec",
 	Short: "Execute a command in a Resource",
 	Long:  `Execute a command in a Resource or start a Tools resource and execute`,
-	Args:  cobra.NoArgs,
+	Args:  cobra.OnlyValidArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		l := createLogger()
 		cd, _ := clients.NewDocker()
 		dt := clients.NewDockerTasks(cd, l)
+
+		fmt.Printf("arguments: %#v", args)
 
 		// find a list of resources in the current stack
 		// sc := config.New()
