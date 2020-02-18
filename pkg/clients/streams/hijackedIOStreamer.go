@@ -38,14 +38,15 @@ type HijackedIOStreamer struct {
 // NewHijackedStreamer creates a new stream for reading and writing TTY terminals
 func NewHijackedStreamer(inStr *In, outStr *Out, inputStream io.ReadCloser, outputStream io.Writer, errorStream io.Writer, resp types.HijackedResponse, tty bool, detachKeys string, logger hclog.Logger) *HijackedIOStreamer {
 	return &HijackedIOStreamer{
-		inStr:       inStr,
-		outStr:      outStr,
-		inputStream: inputStream,
-		errorStream: errorStream,
-		resp:        resp,
-		tty:         tty,
-		detachKeys:  detachKeys,
-		logger:      logger,
+		inStr:        inStr,
+		outStr:       outStr,
+		inputStream:  inputStream,
+		outputStream: outputStream,
+		errorStream:  errorStream,
+		resp:         resp,
+		tty:          tty,
+		detachKeys:   detachKeys,
+		logger:       logger,
 	}
 }
 

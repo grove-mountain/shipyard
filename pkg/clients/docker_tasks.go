@@ -426,7 +426,7 @@ var UnableToGetTTYSizeError = fmt.Errorf("Unable to determine screen size")
 
 // CreateShell creates an interactive shell inside a container
 // https://github.com/docker/cli/blob/ae1618713f83e7da07317d579d0675f578de22fa/cli/command/container/exec.go
-func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser, stdout io.Writer, errout io.Writer) error {
+func (d *DockerTasks) CreateShell(id string, command []string, stdin io.ReadCloser, stdout io.Writer, stderr io.Writer) error {
 	execid, err := d.c.ContainerExecCreate(context.Background(), id, types.ExecConfig{
 		Cmd:          command,
 		WorkingDir:   "/",
@@ -451,9 +451,9 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 	}
 
 	// wrap the standard streams
-	ttyIn := streams.NewIn(in)
+	ttyIn := streams.NewIn(stdin)
 	ttyOut := streams.NewOut(stdout)
-	ttyErr := streams.NewOut(errout)
+	ttyErr := streams.NewOut(stderr)
 
 	defer resp.Close()
 
@@ -463,7 +463,7 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 		defer close(errCh)
 		errCh <- func() error {
 
-			streamer := streams.NewHijackedStreamer(ttyIn, ttyOut, ttyIn, ttyOut, ttyErr, resp, true, "ctrl-e,e", d.l)
+			streamer := streams.NewHijackedStreamer(ttyIn, ttyOut, ttyIn, ttyOut, ttyErr, resp, true, "", d.l)
 
 			return streamer.Stream(context.Background())
 		}()
@@ -574,10 +574,10 @@ func (d *DockerTasks) ExecuteCommand(id string, command []string, writer io.Writ
 		}()
 	}
 
-	err = d.c.ContainerExecStart(context.Background(), execid.ID, types.ExecStartCheck{})
-	if err != nil {
-		return xerrors.Errorf("unable to start exec process: %w", err)
-	}
+	// err = d.c.ContainerExecStart(context.Background(), execid.ID, types.ExecStartCheck{})
+	// if err != nil {
+	// 	return xerrors.Errorf("unable to start exec process: %w", err)
+	// }
 
 	// loop until the container finishes execution
 	for {
