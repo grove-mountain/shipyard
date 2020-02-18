@@ -146,10 +146,10 @@ func (h *HijackedIOStreamer) beginOutputStream(restoreInput func()) <-chan error
 			_, err = stdcopy.StdCopy(h.outputStream, h.errorStream, h.resp.Reader)
 		}
 
-		h.logger.Debug("[hijack] End of stdout")
+		h.logger.Trace("[hijack] End of stdout")
 
 		if err != nil {
-			h.logger.Debug("Error receiveStdout", "error", err)
+			h.logger.Trace("Error receiveStdout", "error", err)
 		}
 
 		outputDone <- err
@@ -170,7 +170,7 @@ func (h *HijackedIOStreamer) beginInputStream(restoreInput func()) (doneC <-chan
 			// messages will be in normal type.
 			restoreInput()
 
-			h.logger.Debug("[hijack] End of stdin")
+			h.logger.Trace("[hijack] End of stdin")
 
 			if _, ok := err.(term.EscapeError); ok {
 				detached <- err
@@ -181,12 +181,12 @@ func (h *HijackedIOStreamer) beginInputStream(restoreInput func()) (doneC <-chan
 				// This error will also occur on the receive
 				// side (from stdout) where it will be
 				// propagated back to the caller.
-				h.logger.Debug("Error sendStdin", "error", err)
+				h.logger.Trace("Error sendStdin", "error", err)
 			}
 		}
 
 		if err := h.resp.CloseWrite(); err != nil {
-			h.logger.Debug("Couldn't send EOF", "error", err)
+			h.logger.Trace("Couldn't send EOF", "error", err)
 		}
 
 		close(inputDone)
