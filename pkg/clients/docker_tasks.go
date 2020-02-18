@@ -462,19 +462,10 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 	go func() {
 		defer close(errCh)
 		errCh <- func() error {
-			streamer := hijackedIOStreamer{
-				inStr:        ttyIn,
-				outStr:       ttyOut,
-				inputStream:  ttyIn,
-				outputStream: ttyOut,
-				errorStream:  ttyErr,
-				resp:         resp,
-				tty:          true,
-				detachKeys:   "ctrl-e,e",
-				logger:       d.l,
-			}
 
-			return streamer.stream(context.Background())
+			streamer := streams.NewHijackedStreamer(ttyIn, ttyOut, ttyIn, ttyOut, ttyErr, resp, true, "ctrl-e,e", d.l)
+
+			return streamer.Stream(context.Background())
 		}()
 	}()
 

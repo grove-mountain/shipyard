@@ -1,4 +1,4 @@
-package clients
+package streams
 
 import (
 	"context"
@@ -12,18 +12,17 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/docker/pkg/term"
 	"github.com/hashicorp/go-hclog"
-	"github.com/shipyard-run/shipyard/pkg/clients/streams"
 )
 
 // The default escape key sequence: ctrl-p, ctrl-q
 // TODO: This could be moved to `pkg/term`.
 var defaultEscapeKeys = []byte{16, 17}
 
-// A hijackedIOStreamer handles copying input to and output from streams to the
+// HijackedIOStreamer handles copying input to and output from streams to the
 // connection.
-type hijackedIOStreamer struct {
-	inStr        *streams.In
-	outStr       *streams.Out
+type HijackedIOStreamer struct {
+	inStr        *In
+	outStr       *Out
 	inputStream  io.ReadCloser
 	outputStream io.Writer
 	errorStream  io.Writer
@@ -36,11 +35,25 @@ type hijackedIOStreamer struct {
 	logger hclog.Logger
 }
 
-// stream handles setting up the IO and then begins streaming stdin/stdout
+// NewHijackedStreamer creates a new stream for reading and writing TTY terminals
+func NewHijackedStreamer(inStr *In, outStr *Out, inputStream io.ReadCloser, outputStream io.Writer, errorStream io.Writer, resp types.HijackedResponse, tty bool, detachKeys string, logger hclog.Logger) *HijackedIOStreamer {
+	return &HijackedIOStreamer{
+		inStr:       inStr,
+		outStr:      outStr,
+		inputStream: inputStream,
+		errorStream: errorStream,
+		resp:        resp,
+		tty:         tty,
+		detachKeys:  detachKeys,
+		logger:      logger,
+	}
+}
+
+// Stream handles setting up the IO and then begins streaming stdin/stdout
 // to/from the hijacked connection, blocking until it is either done reading
 // output, the user inputs the detach key sequence when in TTY mode, or when
 // the given context is cancelled.
-func (h *hijackedIOStreamer) stream(ctx context.Context) error {
+func (h *HijackedIOStreamer) Stream(ctx context.Context) error {
 	restoreInput, err := h.setupInput()
 	if err != nil {
 		return fmt.Errorf("unable to setup input stream: %s", err)
@@ -74,7 +87,7 @@ func (h *hijackedIOStreamer) stream(ctx context.Context) error {
 	}
 }
 
-func (h *hijackedIOStreamer) setupInput() (restore func(), err error) {
+func (h *HijackedIOStreamer) setupInput() (restore func(), err error) {
 	if h.inputStream == nil || !h.tty {
 		// No need to setup input TTY.
 		// The restore func is a nop.
@@ -111,7 +124,7 @@ func (h *hijackedIOStreamer) setupInput() (restore func(), err error) {
 	return restore, nil
 }
 
-func (h *hijackedIOStreamer) beginOutputStream(restoreInput func()) <-chan error {
+func (h *HijackedIOStreamer) beginOutputStream(restoreInput func()) <-chan error {
 	if h.outputStream == nil && h.errorStream == nil {
 		// There is no need to copy output.
 		return nil
@@ -144,7 +157,7 @@ func (h *hijackedIOStreamer) beginOutputStream(restoreInput func()) <-chan error
 	return outputDone
 }
 
-func (h *hijackedIOStreamer) beginInputStream(restoreInput func()) (doneC <-chan struct{}, detachedC <-chan error) {
+func (h *HijackedIOStreamer) beginInputStream(restoreInput func()) (doneC <-chan struct{}, detachedC <-chan error) {
 	inputDone := make(chan struct{})
 	detached := make(chan error)
 
@@ -181,7 +194,7 @@ func (h *hijackedIOStreamer) beginInputStream(restoreInput func()) (doneC <-chan
 	return inputDone, detached
 }
 
-func setRawTerminal(inStr *streams.In, outStr *streams.Out) error {
+func setRawTerminal(inStr *In, outStr *Out) error {
 	if err := inStr.SetRawTerminal(); err != nil {
 		return err
 	}
@@ -189,7 +202,7 @@ func setRawTerminal(inStr *streams.In, outStr *streams.Out) error {
 }
 
 // nolint: unparam
-func restoreTerminal(inStr *streams.In, outStr *streams.Out, in io.Closer) error {
+func restoreTerminal(inStr *In, outStr *Out, in io.Closer) error {
 	inStr.RestoreTerminal()
 	outStr.RestoreTerminal()
 	// WARNING: DO NOT REMOVE THE OS CHECKS !!!
