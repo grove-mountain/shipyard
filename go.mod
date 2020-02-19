@@ -6,9 +6,21 @@ require (
 	github.com/DATA-DOG/godog v0.7.13
 	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
+<<<<<<< HEAD
 	github.com/bugsnag/bugsnag-go v1.5.0 // indirect
 	github.com/bugsnag/panicwrap v1.2.0 // indirect
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
+=======
+	github.com/c-bata/go-prompt v0.2.3
+	github.com/containerd/containerd v1.3.2 // indirect
+	github.com/containerd/fifo v0.0.0-20191213151349-ff969a566b00 // indirect
+	github.com/containerd/ttrpc v0.0.0-20200121165050-0be804eadb15 // indirect
+	github.com/containerd/typeurl v0.0.0-20200205145503-b45ef1f1f737 // indirect
+	github.com/docker/cli v0.0.0-20190506213505-d88565df0c2d
+	github.com/docker/compose-on-kubernetes v0.4.24 // indirect
+	github.com/docker/docker v1.4.2-0.20181221150755-2cb26cfe9cbf
+	github.com/docker/go v1.5.1-1 // indirect
+>>>>>>> e452cbe... Continued exec work
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-metrics v0.0.0-20181218153428-b84716841b82 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
@@ -29,12 +41,24 @@ require (
 	github.com/hashicorp/hcl2 v0.0.0-20191002203319-fb75b3253c80
 	github.com/hashicorp/terraform v0.12.20
 	github.com/hokaccha/go-prettyjson v0.0.0-20190818114111-108c894c2c0e
+<<<<<<< HEAD
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
+=======
+	github.com/ktr0731/go-fuzzyfinder v0.2.0
+>>>>>>> e452cbe... Continued exec work
 	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/mattn/go-tty v0.0.3 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.1.2
+<<<<<<< HEAD
 	github.com/prometheus/client_golang v1.2.1 // indirect
+=======
+	github.com/opencontainers/runtime-spec v1.0.1 // indirect
+	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
+	github.com/posener/complete v1.2.3 // indirect
+	github.com/sirupsen/logrus v1.4.2
+>>>>>>> e452cbe... Continued exec work
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.5.0
 	github.com/stretchr/testify v1.4.0
@@ -42,7 +66,10 @@ require (
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.6 // indirect
 	github.com/zclconf/go-cty v1.2.1
+<<<<<<< HEAD
 	golang.org/x/net v0.0.0-20191028085509-fe3aa8a45271 // indirect
+=======
+>>>>>>> e452cbe... Continued exec work
 	golang.org/x/sys v0.0.0-20200212091648-12a6c2dcc1e4 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543

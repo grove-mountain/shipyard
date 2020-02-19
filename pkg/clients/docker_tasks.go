@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	gosignal "os/signal"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
+	"github.com/docker/docker/pkg/signal"
+	"github.com/docker/docker/pkg/term"
 	"github.com/docker/go-connections/nat"
 	"github.com/hashicorp/go-hclog"
 	"github.com/shipyard-run/shipyard/pkg/config"
@@ -415,9 +418,11 @@ func (d *DockerTasks) CopyLocalDockerImageToVolume(images []string, volume strin
 	return fi.Name(), nil
 }
 
+var UnableToGetTTYSizeError = fmt.Errorf("Unable to determine screen size")
+
 // CreateShell creates an interactive shell inside a container
 // https://github.com/docker/cli/blob/ae1618713f83e7da07317d579d0675f578de22fa/cli/command/container/exec.go
-func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser, out io.Writer) error {
+func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser, stdout io.Writer, errout io.Writer) error {
 	execid, err := d.c.ContainerExecCreate(context.Background(), id, types.ExecConfig{
 		Cmd:          command,
 		WorkingDir:   "/",
@@ -431,10 +436,10 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 		return xerrors.Errorf("unable to create container exec: %w", err)
 	}
 
-	err = d.c.ContainerExecStart(context.Background(), execid.ID, types.ExecStartCheck{})
-	if err != nil {
-		return xerrors.Errorf("unable to start exec process: %w", err)
-	}
+	// err = d.c.ContainerExecStart(context.Background(), execid.ID, types.ExecStartCheck{})
+	// if err != nil {
+	// 	return xerrors.Errorf("unable to start exec process: %w", err)
+	// }
 
 	resp, err := d.c.ContainerExecAttach(context.Background(), execid.ID, types.ExecStartCheck{Tty: true})
 	if err != nil {
@@ -450,22 +455,29 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 		errCh <- func() error {
 			streamer := hijackedIOStreamer{
 				inputStream:  in,
-				outputStream: out,
-				errorStream:  out,
+				outputStream: stdout,
+				errorStream:  errout,
 				resp:         resp,
 				tty:          true,
 				detachKeys:   string(defaultEscapeKeys),
+				logger:       d.l,
 			}
 
 			return streamer.stream(context.Background())
 		}()
 	}()
 
-	/*
-		if err := MonitorTtySize(ctx, dockerCli, execID, true); err != nil {
-			fmt.Fprintln(dockerCli.Err(), "Error monitoring TTY size:", err)
+	// init the TTY
+	d.initTTY(execid.ID, stdout)
+
+	// monitor for TTY changes
+	sigchan := make(chan os.Signal, 1)
+	gosignal.Notify(sigchan, signal.SIGWINCH)
+	go func() {
+		for range sigchan {
+			d.resizeTTY(execid.ID, &stdout)
 		}
-	*/
+	}()
 
 	// loop until the container finishes execution
 	for {
@@ -486,36 +498,50 @@ func (d *DockerTasks) CreateShell(id string, command []string, in io.ReadCloser,
 	}
 }
 
-/*
-// MonitorTtySize updates the container tty size when the terminal tty changes size
-func MonitorTtySize(ctx context.Context, cli command.Cli, id string, isExec bool) error {
-	initTtySize(ctx, cli, id, isExec, resizeTty)
-	if runtime.GOOS == "windows" {
+func (d *DockerTasks) initTTY(id string, out io.Writer) error {
+	if err := d.resizeTTY(id, &out); err != nil {
 		go func() {
-			prevH, prevW := cli.Out().GetTtySize()
-			for {
-				time.Sleep(time.Millisecond * 250)
-				h, w := cli.Out().GetTtySize()
-
-				if prevW != w || prevH != h {
-					resizeTty(ctx, cli, id, isExec)
+			var err error
+			for retry := 0; retry < 5; retry++ {
+				time.Sleep(10 * time.Millisecond)
+				if err = d.resizeTTY(id, &out); err == nil {
+					break
 				}
-				prevH = h
-				prevW = w
 			}
-		}()
-	} else {
-		sigchan := make(chan os.Signal, 1)
-		gosignal.Notify(sigchan, signal.SIGWINCH)
-		go func() {
-			for range sigchan {
-				resizeTty(ctx, cli, id, isExec)
+			if err != nil {
+				//something
+				d.l.Error("Unable to resize TTY use default", "error", err)
 			}
 		}()
 	}
+
 	return nil
 }
-*/
+
+func (d *DockerTasks) resizeTTY(id string, out *io.Writer) error {
+	fd, _ := term.GetFdInfo(out)
+
+	ws, err := term.GetWinsize(fd)
+	if err != nil {
+		if ws == nil {
+			d.l.Error("Unable to get TTY size", "error", err)
+			return UnableToGetTTYSizeError
+		}
+	}
+
+	options := types.ResizeOptions{
+		Height: uint(ws.Width),
+		Width:  uint(ws.Width),
+	}
+
+	// resize the contiainer
+	err = d.c.ContainerExecResize(context.Background(), id, options)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // ExecuteCommand allows the execution of commands in a running docker container
 // id is the id of the container to execute the command in

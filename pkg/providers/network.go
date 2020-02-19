@@ -79,6 +79,10 @@ func (n *Network) Destroy() error {
 	}
 
 	return nil
+<<<<<<< HEAD
+=======
+
+>>>>>>> e452cbe... Continued exec work
 }
 
 // Lookup the ID for a network

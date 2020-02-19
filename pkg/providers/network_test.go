@@ -70,11 +70,52 @@ func TestLookupReturnsID(t *testing.T) {
 func TestLookupFailReturnsError(t *testing.T) {
 	c := config.NewNetwork("testnet")
 	c.Subnet = "10.1.2.0/24"
-	
+
 	md, p := setupNetworkTests(c)
 	removeOn(&md.Mock, "NetworkList")
 	md.On("NetworkList", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("boom"))
 
 	_, err := p.Lookup()
 	assert.Error(t, err)
+}
+
+func TestNetworkDestroys(t *testing.T) {
+	c := config.NewNetwork("testnet")
+	c.Subnet = "10.1.2.0/24"
+
+	md, p := setupNetworkTests(c)
+	removeOn(&md.Mock, "NetworkList")
+	md.On("NetworkList", mock.Anything, mock.Anything).Return([]string{"abc"}, nil)
+
+	err := p.Destroy()
+	assert.NoError(t, err)
+
+	md.AssertCalled(t, "NetworkRemove", mock.Anything, mock.Anything)
+}
+func TestNetworkDestroyDoesNothingWhenNotExist(t *testing.T) {
+	c := config.NewNetwork("testnet")
+	c.Subnet = "10.1.2.0/24"
+
+	md, p := setupNetworkTests(c)
+	removeOn(&md.Mock, "NetworkList")
+	md.On("NetworkList", mock.Anything, mock.Anything).Return(nil, nil)
+
+	err := p.Destroy()
+	assert.NoError(t, err)
+
+	md.AssertNotCalled(t, "NetworkRemove", mock.Anything, mock.Anything)
+}
+
+func TestNetworkDestroyDoesNothingWhenLookupFail(t *testing.T) {
+	c := config.NewNetwork("testnet")
+	c.Subnet = "10.1.2.0/24"
+
+	md, p := setupNetworkTests(c)
+	removeOn(&md.Mock, "NetworkList")
+	md.On("NetworkList", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("boom"))
+
+	err := p.Destroy()
+	assert.NoError(t, err)
+
+	md.AssertNotCalled(t, "NetworkRemove", mock.Anything, mock.Anything)
 }
