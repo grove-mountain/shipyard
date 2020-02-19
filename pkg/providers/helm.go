@@ -34,7 +34,7 @@ func (h *Helm) Create() error {
 	// get the target cluster
 	kcPath, err := h.getKubeConfigPath()
 	if err != nil {
-		return err
+		return xerrors.Errorf("Unable to find cluster: %w", err)
 	}
 
 	// obtain a lock so that other runs can not execute helm at the same time
