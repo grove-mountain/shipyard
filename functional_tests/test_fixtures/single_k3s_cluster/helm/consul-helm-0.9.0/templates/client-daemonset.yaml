@@ -101,6 +101,7 @@ spec:
                 -advertise="${POD_IP}" \
                 -bind=0.0.0.0 \
                 -client=0.0.0.0 \
+                -retry-interval 2s \
                 {{- if .Values.client.grpc }}
                 -hcl="ports { grpc = 8502 }" \
                 {{- end }}
@@ -130,6 +131,21 @@ spec:
                 {{- end }}
                 {{- end }}
                 -domain={{ .Values.global.domain }}
+          readinessProbe:
+            # NOTE(mitchellh): when our HTTP status endpoints support the
+            # proper status codes, we should switch to that. This is temporary.
+            exec:
+              command:
+                - "/bin/sh"
+                - "-ec"
+                - |
+                  curl http://127.0.0.1:8500/v1/status/leader 2>/dev/null | \
+                  grep -E '".+"'
+            failureThreshold: 2
+            initialDelaySeconds: 5
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 5
           volumeMounts:
             - name: data
               mountPath: /consul/data
