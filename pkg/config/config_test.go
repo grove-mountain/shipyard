@@ -19,8 +19,8 @@ func testSetupConfig() *Config {
 }
 
 func TestResourceCount(t *testing.T) {
-
-	//assert.Equal(t, 10, c.ResourceCount())
+	c := testSetupConfig()
+	assert.Equal(t, 2, c.ResourceCount())
 }
 
 func TestResourceAddChildSetsDetails(t *testing.T) {
@@ -56,6 +56,14 @@ func TestFindDependentResourceFindsResource(t *testing.T) {
 	r, err := c.Resources[0].FindDependentResource("k8s_cluster.test")
 	assert.NoError(t, err)
 	assert.Equal(t, c.Resources[1], r)
+}
+
+func TestFindResourceForTypeFindsClusters(t *testing.T) {
+	c := testSetupConfig()
+
+	cl, err := c.FindResourceByType(TypeK8sCluster)
+	assert.NoError(t, err)
+	assert.Len(t, cl, 1)
 }
 
 func TestAddResourceAddsAResouce(t *testing.T) {

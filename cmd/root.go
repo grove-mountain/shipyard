@@ -37,7 +37,7 @@ func init() {
 	rootCmd.AddCommand(containerCmd)
 	rootCmd.AddCommand(codeCmd)
 	rootCmd.AddCommand(docsCmd)
-	rootCmd.AddCommand(toolsCmd)
+	rootCmd.AddCommand(execCmd)
 	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(pushCmd)
