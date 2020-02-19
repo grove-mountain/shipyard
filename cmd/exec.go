@@ -34,30 +34,27 @@ var execCmd = &cobra.Command{
 			return
 		}
 
-		parts := strings.Split(args[0], ".")
-		if len(parts) < 2 {
+		parameters, command := parseParameters(args)
+
+		fmt.Printf("parameters: %#v - command: %#v\n", parameters, command)
+
+		targets := strings.Split(parameters[0], ".")
+		if len(targets) < 2 {
 			l.Error("No target specified for resource")
 			return
 		}
 
-		switch parts[0] {
+		switch targets[0] {
 		case string(config.TypeContainer):
-			container := parts[1]
+			container := targets[1]
 
-			command := []string{"sh"}
-			if len(args) > 1 {
-				// TODO turn this into a function
-				if args[1] != "--" {
-					l.Error("No command specified, expected a seperator -- followed by a command")
-					return
-				}
-
-				command = args[2:]
+			if len(command) == 0 {
+				command = []string{"sh"}
 			}
 
 			// find the container id
 			ids, err := dt.FindContainerIDs(container, config.TypeContainer)
-			if err != nil {
+			if err != nil || len(ids) == 0 {
 				l.Error("Unable to find container", "container", container)
 				return
 			}
@@ -70,7 +67,7 @@ var execCmd = &cobra.Command{
 			}
 		case string(config.TypeK8sCluster):
 			// shipyard exec k8s_cluster.k3s <pod> -- <command>
-			clusterName := parts[1]
+			clusterName := targets[1]
 
 			// check if the given cluster exists
 			cluster, err := sc.FindResource(fmt.Sprintf("%s.%s", config.TypeK8sCluster, clusterName))
@@ -79,19 +76,23 @@ var execCmd = &cobra.Command{
 				return
 			}
 
-			// get the pod to execute the command in
-			if len(args) < 2 {
-				l.Error("No target specified", "cluster", clusterName)
-			}
-			pod := args[1]
+			exec := []string{"kubectl", "exec", "-ti"}
 
-			if len(args) < 3 {
-				l.Error("No command specified, expected a seperator -- followed by a command")
+			// get the pod to execute the command in
+			if len(parameters) == 1 {
+				l.Error("No target specified", "cluster", clusterName)
 				return
 			}
 
-			// kubectl exec -ti pod <container>
-			command := append([]string{"kubectl", "exec", "-ti", pod}, args[2:]...)
+			exec = append(exec, parameters[1])
+
+			if len(parameters) == 3 {
+				exec = append(exec, "-c", parameters[2])
+			}
+
+			if len(command) == 0 {
+				command = []string{"sh"}
+			}
 
 			// start a tools container
 			i := config.Image{Name: "shipyardrun/tools:latest"}
@@ -140,7 +141,7 @@ var execCmd = &cobra.Command{
 			defer dt.RemoveContainer(tools)
 
 			in, stdout, _ := term.StdStreams()
-			err = dt.CreateShell(tools, command, in, stdout, stdout)
+			err = dt.CreateShell(tools, append(exec, command...), in, stdout, stdout)
 			if err != nil {
 				l.Error("Could not execute command", "cluster", clusterName, "error", err)
 				return
@@ -151,6 +152,21 @@ var execCmd = &cobra.Command{
 			os.Exit(1)
 		}
 	},
+}
+
+func parseParameters(args []string) ([]string, []string) {
+	commandIndex := -1
+	for p, v := range args {
+		if v == "--" {
+			commandIndex = p
+		}
+	}
+
+	if commandIndex == -1 {
+		return args, []string{}
+	}
+
+	return args[0:commandIndex], args[commandIndex:]
 }
 
 func init() {

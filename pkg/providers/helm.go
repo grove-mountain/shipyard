@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -9,6 +10,12 @@ import (
 	"github.com/shipyard-run/shipyard/pkg/utils"
 	"golang.org/x/xerrors"
 )
+
+var helmLock sync.Mutex
+
+func init() {
+	helmLock = sync.Mutex{}
+}
 
 type Helm struct {
 	config     *config.Helm
@@ -30,17 +37,25 @@ func (h *Helm) Create() error {
 		return err
 	}
 
+	// obtain a lock so that other runs can not execute helm at the same time
+	helmLock.Lock()
+
 	// set the KubeConfig for the kubernetes client
 	// this is used by the healthchecks
 	err = h.kubeClient.SetConfig(kcPath)
 	if err != nil {
+		helmLock.Unlock()
 		return xerrors.Errorf("unable to create Kubernetes client: %w", err)
 	}
 
 	err = h.helmClient.Create(kcPath, h.config.Name, h.config.Chart, h.config.Values)
 	if err != nil {
+		helmLock.Unlock()
 		return err
 	}
+
+	// release the lock
+	helmLock.Unlock()
 
 	// we can now health check the install
 	if h.config.HealthCheck != nil && len(h.config.HealthCheck.Pods) > 0 {

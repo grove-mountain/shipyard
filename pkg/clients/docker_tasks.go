@@ -222,8 +222,8 @@ func (d *DockerTasks) FindContainerIDs(containerName string, typeName config.Res
 	opts := types.ContainerListOptions{Filters: args, All: true}
 
 	cl, err := d.c.ContainerList(context.Background(), opts)
-	if err != nil || len(cl) == 0 {
-		return nil, xerrors.Errorf("No containers found for %s: %w", containerName, err)
+	if err != nil || cl == nil {
+		return nil, xerrors.Errorf("Error listing Docker containers: %w", err)
 	}
 
 	if len(cl) > 0 {
